@@ -1,0 +1,62 @@
+# ============================================================
+# .dockerignore for mihomo-docker
+# Exclude files not needed in the Docker build context
+# ============================================================
+
+# --- Version control ---
+.git
+.gitignore
+.gitattributes
+
+# --- GitHub ---
+.github
+
+# --- Documentation ---
+README.md
+LICENSE
+CHANGELOG.md
+docs/
+
+# --- Docker files (not needed inside build context recursively) ---
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore
+
+# --- IDE and editor files ---
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --- Go build artifacts (if building locally) ---
+vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+
+# --- Temporary and cache files ---
+tmp/
+temp/
+*.tmp
+*.log
+*.cache
+
+# --- CI/CD ---
+.travis.yml
+.circleci/
+Jenkinsfile
+
+# --- Runtime data (do not bake config into image) ---
+# Note: config/ IS needed in the build context for the default config copy
+# Do not exclude config/ here
+*.db
+*.mmdb
+providers/

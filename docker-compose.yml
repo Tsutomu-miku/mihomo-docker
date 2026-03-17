@@ -1,0 +1,59 @@
+# ============================================================
+# docker-compose.yml for mihomo-docker
+# All-in-one proxy with mihomo kernel + metacubexd Web UI
+# ============================================================
+
+services:
+  mihomo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/tsutomu-miku/mihomo-docker:latest
+    container_name: mihomo
+    restart: unless-stopped
+
+    # --- Capabilities ---
+    # NET_ADMIN is required for TUN mode and transparent proxy
+    cap_add:
+      - NET_ADMIN
+
+    # --- Network ---
+    # Bridge mode (default): use port mapping
+    network_mode: bridge
+    ports:
+      - "7890:7890"       # HTTP/Mixed proxy
+      - "7891:7891"       # SOCKS5 proxy
+      - "9090:9090"       # RESTful API & Web UI
+      # - "53:53/tcp"     # DNS (uncomment if needed)
+      # - "53:53/udp"     # DNS (uncomment if needed)
+
+    # Host mode alternative: uncomment below and comment out bridge + ports
+    # network_mode: host
+
+    # --- Volumes ---
+    volumes:
+      - ./config:/root/.config/mihomo   # Mount local config directory
+
+    # --- Environment ---
+    environment:
+      - TZ=Asia/Shanghai               # Timezone setting
+
+    # --- Sysctls (for TUN mode, optional) ---
+    # sysctls:
+    #   - net.ipv4.ip_forward=1
+    #   - net.ipv6.conf.all.forwarding=1
+
+    # --- Health Check ---
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9090"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # --- Logging ---
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
