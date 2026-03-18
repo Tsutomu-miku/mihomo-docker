@@ -13,6 +13,7 @@
 - **Sensible Defaults** — Ships with a working default configuration
 - **Docker Compose Ready** — One command to start everything
 - **Auto Timezone** — Configurable via `TZ` environment variable
+- **SAFE_PATHS Compliant** — UI files stored within mihomo's allowed config directory
 
 ---
 
@@ -77,6 +78,12 @@ On first run, if no `config.yaml` exists, the container copies a default configu
 <!-- 首次运行时，如果没有 config.yaml，容器会自动复制一份默认配置。
      编辑该文件可添加代理服务器、订阅链接和分流规则。 -->
 
+### Important: UI Files
+
+The metacubexd Web UI files are stored at `/root/.config/mihomo/ui` inside the container to comply with mihomo's `SAFE_PATHS` security policy. When you mount a volume to `/root/.config/mihomo`, the entrypoint script automatically copies the built-in UI files into the `ui` subdirectory if they don't exist.
+
+> **Note:** If you need to update the UI, simply delete the `config/ui` directory and restart the container.
+
 ### Applying Changes
 
 After editing `config.yaml`, you can reload the configuration without restarting the container:
@@ -133,10 +140,11 @@ proxy-providers:
 | Container Path | Description |
 |----------------|-------------|
 | `/root/.config/mihomo` | Configuration directory — mount your local `./config` here |
-| `/ui` | Web UI files (built into the image, no need to mount) |
+| `/root/.config/mihomo/ui` | Web UI files (auto-copied from built-in on first run) |
 
 The configuration directory stores:
 - `config.yaml` — Main configuration file
+- `ui/` — metacubexd Web UI files (auto-populated)
 - `cache.db` — Persistent cache (fake-ip mappings, selected proxies)
 - `providers/` — Downloaded proxy provider files
 
@@ -210,6 +218,14 @@ docker compose up -d
 
 # Clean up old images
 docker image prune -f
+```
+
+### Update the Web UI Only
+
+```bash
+# Delete the local UI files (they will be re-copied from the image on next start)
+rm -rf ./config/ui
+docker restart mihomo
 ```
 
 ### Build Locally with Specific Versions

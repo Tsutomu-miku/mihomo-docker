@@ -61,14 +61,14 @@ RUN apk add --no-cache \
     curl \
     && update-ca-certificates
 
-# Create configuration directory
-RUN mkdir -p /root/.config/mihomo
+# Create configuration directory and UI subdirectory
+RUN mkdir -p /root/.config/mihomo/ui
 
 # Copy mihomo binary from builder stage
 COPY --from=builder /mihomo /usr/local/bin/mihomo
 
-# Copy metacubexd UI from frontend stage
-COPY --from=frontend /ui /ui
+# Copy metacubexd UI into mihomo config directory (SAFE_PATHS compliant)
+COPY --from=frontend /ui /root/.config/mihomo/ui
 
 # Copy default configuration
 COPY config/config.yaml /etc/mihomo/default-config.yaml

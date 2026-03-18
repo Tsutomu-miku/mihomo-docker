@@ -14,7 +14,7 @@ ipv6: true                 # Enable IPv6 support
 
 # ----- External Controller & Web UI -----
 external-controller: 0.0.0.0:9090   # RESTful API listen address
-external-ui: /ui                      # metacubexd Web UI path
+external-ui: ui                       # Relative path -> resolves to /root/.config/mihomo/ui
 secret: ""                            # API access secret (empty for first setup, CHANGE this!)
 
 # ----- Advanced Settings -----
