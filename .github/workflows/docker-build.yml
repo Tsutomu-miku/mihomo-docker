@@ -19,10 +19,10 @@ on:
         description: "mihomo branch/tag to build from"
         required: false
         default: "Alpha"
-      metacubexd_version:
-        description: "metacubexd release tag"
-        required: false
-        default: "v1.243.0"
+
+permissions:
+  contents: read
+  packages: write
 
 env:
   REGISTRY_GHCR: ghcr.io
@@ -31,10 +31,6 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      packages: write
 
     steps:
       # --------------------------------------------------
@@ -66,17 +62,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # --------------------------------------------------
-      # 5. (Optional) Log in to Docker Hub
-      #    Uncomment to enable DockerHub push
-      # --------------------------------------------------
-      # - name: Log in to Docker Hub
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      # --------------------------------------------------
-      # 6. Extract metadata (tags, labels)
+      # 5. Extract metadata (tags, labels)
       # --------------------------------------------------
       - name: Extract Docker metadata
         id: meta
@@ -84,8 +70,6 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}
-          # Uncomment below line to also tag DockerHub image
-          # ${{ secrets.DOCKERHUB_USERNAME }}/mihomo-docker
           tags: |
             # Tag "latest" on default branch pushes
             type=raw,value=latest,enable={{is_default_branch}}
@@ -97,7 +81,7 @@ jobs:
             type=sha,prefix=,format=short
 
       # --------------------------------------------------
-      # 7. Build and push multi-platform image
+      # 6. Build and push multi-platform image
       # --------------------------------------------------
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -108,14 +92,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            MIHOMO_VERSION=${{ github.event.inputs.mihomo_version || 'Alpha' }}
-            METACUBEXD_VERSION=${{ github.event.inputs.metacubexd_version || 'v1.243.0' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       # --------------------------------------------------
-      # 8. Output image digest
+      # 7. Output image digest
       # --------------------------------------------------
       - name: Image digest
-        run: echo "Image digest ${{ steps.build.outputs.digest }}"
+        run: echo "Image digest ${{ steps.meta.outputs.tags }}"
