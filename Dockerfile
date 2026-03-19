@@ -17,15 +17,16 @@ RUN go build -trimpath -ldflags "-s -w \
 
 # ============================================================
 # Stage 2: Download frontend (metacubexd)
+# NOTE: upstream changed from .zip to .tgz as of v1.243.0
 # ============================================================
 FROM alpine:latest AS frontend
 
-RUN apk add --no-cache wget unzip && \
-    wget -q -O /tmp/ui.zip \
-      "https://github.com/MetaCubeX/metacubexd/releases/latest/download/compressed-dist.zip" && \
+RUN apk add --no-cache wget && \
+    wget -q -O /tmp/ui.tgz \
+      "https://github.com/MetaCubeX/metacubexd/releases/latest/download/compressed-dist.tgz" && \
     mkdir -p /ui && \
-    unzip -q /tmp/ui.zip -d /ui && \
-    rm /tmp/ui.zip
+    tar -xzf /tmp/ui.tgz -C /ui && \
+    rm /tmp/ui.tgz
 
 # ============================================================
 # Stage 3: Download GEO database files
