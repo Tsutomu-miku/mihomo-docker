@@ -1,309 +1,213 @@
-# 🚀 mihomo-docker
+# mihomo-docker
 
-**Docker-based all-in-one proxy solution** packaging the [mihomo](https://github.com/MetaCubeX/mihomo) (Clash.Meta) proxy kernel with the beautiful [metacubexd](https://github.com/MetaCubeX/metacubexd) Web UI into a single, ready-to-run Docker image.
+A Docker all-in-one proxy solution powered by [mihomo](https://github.com/MetaCubeX/mihomo) (Clash.Meta) kernel with [metacubexd](https://github.com/MetaCubeX/metacubexd) web dashboard.
 
----
+## Features
 
-## ✨ Features
+- **mihomo Alpha** kernel - latest proxy engine with full protocol support
+- **metacubexd** web dashboard - modern, responsive management UI
+- **Pre-bundled GEO databases** - geoip.dat, geosite.dat, geoip.metadb, country.mmdb, ASN.mmdb
+- **Auto-recovery** - UI and GEO files automatically restored when config volume overwrites them
+- **Multi-architecture** - supports linux/amd64, linux/arm64, linux/arm/v7
+- **Docker-optimized** - proper health checks, log rotation, timezone support
 
-- **mihomo Kernel** — High-performance proxy core built from the latest Alpha branch with full gVisor support
-- **metacubexd Web UI** — Modern, responsive dashboard for managing proxies, rules, and connections
-- **Multi-Platform** — Supports `linux/amd64`, `linux/arm64`, and `linux/arm/v7` (Raspberry Pi)
-- **All-in-One** — Single container, no sidecar needed
-- **Sensible Defaults** — Ships with a working default configuration
-- **Docker Compose Ready** — One command to start everything
-- **Auto Timezone** — Configurable via `TZ` environment variable
-- **SAFE_PATHS Compliant** — UI files stored within mihomo's allowed config directory
+## Quick Start
 
----
-
-## 📦 Quick Start
-
-### Option 1: Docker Run
+### 1. Create project directory
 
 ```bash
-# Create a config directory and start the container
-mkdir -p ./config
-
-docker run -d \
-  --name mihomo \
-  --restart unless-stopped \
-  --cap-add NET_ADMIN \
-  -p 7890:7890 \
-  -p 7891:7891 \
-  -p 9090:9090 \
-  -v $(pwd)/config:/root/.config/mihomo \
-  -e TZ=Asia/Shanghai \
-  ghcr.io/tsutomu-miku/mihomo-docker:latest
+mkdir mihomo && cd mihomo
+mkdir -p config
 ```
 
-### Option 2: Docker Compose (Recommended)
+### 2. Create docker-compose.yml
+
+```yaml
+services:
+  mihomo:
+    container_name: mihomo
+    image: ghcr.io/tsutomu-miku/mihomo-docker:latest
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./config:/root/.config/mihomo
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+### 3. Start the container
 
 ```bash
-# Clone the repository
-git clone https://github.com/Tsutomu-miku/mihomo-docker.git
-cd mihomo-docker
-
-# Start the service
 docker compose up -d
-
-# View logs
-docker compose logs -f mihomo
 ```
 
-### Access the Web UI
+On first start, the container will:
+1. Copy default `config.yaml` to `./config/` (if not present)
+2. Restore web UI files to `./config/ui/`
+3. Restore GEO database files (geoip.dat, geosite.dat, etc.)
+4. Start mihomo proxy engine
 
-Once the container is running, open your browser and navigate to:
+### 4. Access the dashboard
+
+Open your browser and visit:
 
 ```
-http://<your-host-ip>:9090/ui
+http://YOUR_HOST_IP:9090/ui
 ```
 
-> If you set a `secret` in `config.yaml`, you will need to enter it on the Web UI login page.
-
----
-
-## ⚙️ Configuration
+## Configuration
 
 ### Config File
 
-The main configuration file is located at:
-
-```
-./config/config.yaml
-```
-
-On first run, if no `config.yaml` exists, the container copies a default configuration automatically. Edit this file to add your proxy servers, subscription URLs, and routing rules.
-
-<!-- 首次运行时，如果没有 config.yaml，容器会自动复制一份默认配置。
-     编辑该文件可添加代理服务器、订阅链接和分流规则。 -->
-
-### Important: UI Files
-
-The metacubexd Web UI files are stored at `/root/.config/mihomo/ui` inside the container to comply with mihomo's `SAFE_PATHS` security policy. When you mount a volume to `/root/.config/mihomo`, the entrypoint script automatically copies the built-in UI files into the `ui` subdirectory if they don't exist.
-
-> **Note:** If you need to update the UI, simply delete the `config/ui` directory and restart the container.
-
-### Applying Changes
-
-After editing `config.yaml`, you can reload the configuration without restarting the container:
-
-```bash
-# Restart the container (simple approach)
-docker restart mihomo
-
-# Or use the API to hot-reload (if supported by your config)
-curl -X PUT http://127.0.0.1:9090/configs -H "Content-Type: application/json" \
-  -d '{"path": "/root/.config/mihomo/config.yaml"}'
-```
-
-### Using Subscription Providers
-
-Uncomment the `proxy-providers` section in `config.yaml` and add your subscription URL:
+The main configuration file is `./config/config.yaml`. Edit it to add your proxy servers:
 
 ```yaml
-proxy-providers:
-  my-provider:
-    type: http
-    url: "https://your-subscription-url"
-    interval: 3600
-    path: ./providers/my-provider.yaml
-    health-check:
-      enable: true
-      interval: 600
-      url: https://www.gstatic.com/generate_204
+proxies:
+  - name: "My Proxy"
+    type: ss
+    server: your-server.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: "your-password"
+
+proxy-groups:
+  - name: "Proxy"
+    type: select
+    proxies:
+      - "My Proxy"
+      - DIRECT
+
+rules:
+  - GEOSITE,private,DIRECT
+  - GEOSITE,cn,DIRECT
+  - GEOIP,CN,DIRECT,no-resolve
+  - MATCH,Proxy
 ```
 
----
+After editing, restart the container:
 
-## 📋 Environment Variables
+```bash
+docker compose restart
+```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TZ` | `UTC` | Timezone (e.g., `Asia/Shanghai`, `America/New_York`) |
-
----
-
-## 🔌 Ports
+### Ports
 
 | Port | Protocol | Description |
 |------|----------|-------------|
-| `7890` | TCP | HTTP / Mixed proxy (HTTP + SOCKS5) |
-| `7891` | TCP | Dedicated SOCKS5 proxy |
-| `9090` | TCP | RESTful API & metacubexd Web UI |
-| `53` | TCP/UDP | DNS server (disabled in port mapping by default) |
+| 7890 | HTTP/SOCKS5 | Mixed proxy port |
+| 9090 | HTTP | External controller API + Web UI |
 
----
+### GEO Database Files
 
-## 📂 Volumes
+The image pre-bundles all necessary GEO databases from [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat):
 
-| Container Path | Description |
-|----------------|-------------|
-| `/root/.config/mihomo` | Configuration directory — mount your local `./config` here |
-| `/root/.config/mihomo/ui` | Web UI files (auto-copied from built-in on first run) |
+| File | Format | Purpose |
+|------|--------|---------|
+| `geoip.dat` | v2ray DAT | GeoIP rules (used with `geodata-mode: true`) |
+| `geosite.dat` | v2ray DAT | GeoSite domain rules |
+| `geoip.metadb` | MetaDB | mihomo-specific GeoIP metadata |
+| `country.mmdb` | MaxMind MMDB | GeoIP database (used with `geodata-mode: false`) |
+| `GeoLite2-ASN.mmdb` | MaxMind MMDB | ASN (Autonomous System Number) database |
 
-The configuration directory stores:
-- `config.yaml` — Main configuration file
-- `ui/` — metacubexd Web UI files (auto-populated)
-- `cache.db` — Persistent cache (fake-ip mappings, selected proxies)
-- `providers/` — Downloaded proxy provider files
+**Auto-recovery**: When you mount `./config:/root/.config/mihomo`, the volume mount may overwrite the built-in GEO files. The entrypoint script automatically detects missing GEO files and restores them from the built-in backup at `/opt/mihomo/geodata/`.
 
----
+### GEO Auto-Update
 
-## 🌐 Using as a Network Proxy for Other Containers
-
-### Method 1: Bridge Mode with Explicit Proxy
-
-Configure other containers to use mihomo as their HTTP/SOCKS5 proxy:
+The default config enables automatic GEO database updates every 24 hours with CDN mirrors:
 
 ```yaml
-# docker-compose.yml
-services:
-  mihomo:
-    # ... (mihomo service config)
-
-  my-app:
-    image: my-app:latest
-    environment:
-      - HTTP_PROXY=http://mihomo:7890
-      - HTTPS_PROXY=http://mihomo:7890
-      - ALL_PROXY=socks5://mihomo:7891
-    depends_on:
-      - mihomo
+geo-auto-update: true
+geo-update-interval: 24
+geox-url:
+  geoip: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat"
+  geosite: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat"
+  mmdb: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb"
+  asn: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/GeoLite2-ASN.mmdb"
 ```
 
-### Method 2: Host Network Mode
+### DNS Configuration
 
-For transparent proxy setups, switch to host network mode:
+The default DNS config uses a layered architecture to avoid the "chicken-and-egg" problem (proxy needs DNS, DNS needs proxy):
 
-```yaml
-services:
-  mihomo:
-    # ... other settings ...
-    network_mode: host
-    # Remove the 'ports' section when using host mode
-```
+1. **default-nameserver** (plain IPs) - bootstraps all other DNS
+2. **proxy-server-nameserver** - resolves proxy node hostnames via DIRECT
+3. **nameserver** - primary DNS for all other domains
+4. **fallback** - anti-pollution DNS (overseas servers)
 
-<!-- 使用 host 网络模式时，不需要映射端口，容器直接使用宿主机网络。
-     适合透明代理和 TUN 模式。 -->
+### SAFE_PATHS Compliance
 
-### Method 3: Shared Network Stack
+mihomo Alpha enforces a security policy where config paths must be within the working directory. This image:
 
-Route another container's traffic through mihomo:
+- Uses relative path `external-ui: ui` (resolves to `/root/.config/mihomo/ui`)
+- Stores all GEO files in `/root/.config/mihomo/` (the working directory)
+- No `SAFE_PATHS` environment variable needed in normal operation
 
-```yaml
-services:
-  mihomo:
-    # ... (mihomo service config)
+## Docker Image
 
-  my-app:
-    image: my-app:latest
-    network_mode: "service:mihomo"
-    depends_on:
-      - mihomo
-```
-
----
-
-## 🔄 Updating
-
-### Update the Image
+Pull from GitHub Container Registry:
 
 ```bash
-# Pull the latest image
-docker compose pull
+# Latest
+docker pull ghcr.io/tsutomu-miku/mihomo-docker:latest
 
-# Recreate the container with the new image
-docker compose up -d
-
-# Clean up old images
-docker image prune -f
+# Specific version
+docker pull ghcr.io/tsutomu-miku/mihomo-docker:v1.0.0
 ```
 
-### Update the Web UI Only
+### Supported Architectures
+
+| Architecture | Docker Platform | Typical Devices |
+|-------------|-----------------|------------------|
+| x86_64 | linux/amd64 | PCs, servers, most VPS |
+| ARM64 | linux/arm64 | Raspberry Pi 4/5, Apple M-series |
+| ARMv7 | linux/arm/v7 | Raspberry Pi 2/3, older ARM boards |
+
+## Build from Source
 
 ```bash
-# Delete the local UI files (they will be re-copied from the image on next start)
-rm -rf ./config/ui
-docker restart mihomo
-```
-
-### Build Locally with Specific Versions
-
-```bash
-docker build \
-  --build-arg MIHOMO_VERSION=Alpha \
-  --build-arg METACUBEXD_VERSION=v1.243.0 \
-  -t mihomo-docker:custom .
-```
-
----
-
-## 🏗️ Building from Source
-
-```bash
-# Clone the repository
 git clone https://github.com/Tsutomu-miku/mihomo-docker.git
 cd mihomo-docker
-
-# Build for current platform
-docker build -t mihomo-docker:local .
-
-# Build for multiple platforms
-docker buildx build \
-  --platform linux/amd64,linux/arm64,linux/arm/v7 \
-  -t mihomo-docker:local .
+docker build -t mihomo-docker .
 ```
 
----
+## Troubleshooting
 
-## 🛡️ TUN Mode
+### GEO database errors on startup
 
-To enable TUN mode for transparent proxying, you need to:
+If you see errors like `can't load GEO data`, check:
 
-1. Enable TUN in `config.yaml`:
+1. GEO files should exist in `./config/` directory
+2. If missing, restart the container - entrypoint auto-recovers them
+3. Check network access for auto-update: `geox-url` uses CDN mirrors
 
-```yaml
-tun:
-  enable: true
-  stack: system
-  dns-hijack:
-    - any:53
-  auto-route: true
-  auto-detect-interface: true
-```
+### UI not accessible
 
-2. Run the container with additional privileges:
+1. Verify the container is running: `docker compose ps`
+2. Check logs: `docker compose logs -f`
+3. Ensure port 9090 is accessible
+4. Access URL: `http://HOST_IP:9090/ui`
+5. UI files should be in `./config/ui/` - restart container to restore
 
-```yaml
-services:
-  mihomo:
-    cap_add:
-      - NET_ADMIN
-    devices:
-      - /dev/net/tun
-    sysctls:
-      - net.ipv4.ip_forward=1
-      - net.ipv6.conf.all.forwarding=1
-```
+### SAFE_PATHS error
 
----
+If you see `path is not subpath of home directory or SAFE_PATHS`, ensure:
+- `external-ui` in config uses a relative path (e.g., `ui`) not absolute (e.g., `/ui`)
+- All referenced paths are within `/root/.config/mihomo/`
 
-## 🙏 Credits
+## License
 
-This project packages the following open-source projects:
+MIT License - see [LICENSE](LICENSE) for details.
 
-- **[mihomo](https://github.com/MetaCubeX/mihomo)** — The most feature-rich Clash kernel (formerly Clash.Meta)
-- **[metacubexd](https://github.com/MetaCubeX/metacubexd)** — A modern Web UI dashboard for Clash-based kernels
-- **[Docker](https://www.docker.com/)** — Container platform
+## Credits
 
----
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
-
-Copyright (c) 2025 Tsutomu-miku
-
-> **Note:** The mihomo kernel and metacubexd UI have their own respective licenses.
-> Please refer to their repositories for license details.
+- [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo) - Proxy kernel
+- [MetaCubeX/metacubexd](https://github.com/MetaCubeX/metacubexd) - Web dashboard
+- [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) - GEO databases

@@ -1,181 +1,119 @@
 # ============================================================
-# mihomo Default Configuration
-# Documentation: https://wiki.metacubex.one/
+# mihomo Docker - Default Configuration
+# ============================================================
+# GitHub: https://github.com/Tsutomu-miku/mihomo-docker
+# Wiki:   https://wiki.metacubex.one/
 # ============================================================
 
-# ----- General Settings -----
-mixed-port: 7890           # HTTP(S) and SOCKS5 on same port
-socks-port: 7891           # Dedicated SOCKS5 port
-allow-lan: true            # Required for Docker: allow LAN connections
-bind-address: "*"          # Bind to all interfaces
-mode: rule                 # rule / global / direct
-log-level: info            # silent / error / warning / info / debug
-ipv6: true                 # Enable IPv6 support
+# --- General Settings ---
+mode: rule
+mixed-port: 7890
+allow-lan: true
+bind-address: "*"
+log-level: info
+ipv6: false
 
-# ----- External Controller & Web UI -----
-external-controller: 0.0.0.0:9090   # RESTful API listen address
-external-ui: ui                       # Relative path -> resolves to /root/.config/mihomo/ui
-secret: ""                            # API access secret (empty for first setup, CHANGE this!)
+# --- External Controller (API & Dashboard) ---
+external-controller: 0.0.0.0:9090
+external-ui: ui
+# secret: ""  # Uncomment and set a secret for production use
 
-# ----- Advanced Settings -----
-unified-delay: true        # Unify delay calculation for display
-tcp-concurrent: true       # Enable TCP concurrent handshake
-geodata-mode: true         # Use GeoData for geo matching (recommended)
-geodata-loader: standard   # GeoData loader: standard / memconservative
-geo-auto-update: true      # Auto-update geo databases
-geo-update-interval: 24    # Update interval in hours
+# --- GEO Database Settings ---
+# geodata-mode: true  => uses geoip.dat / geosite.dat (v2ray format)
+# geodata-mode: false => uses country.mmdb (MaxMind format, default)
+geodata-mode: true
+geodata-loader: memconservative
+geosite-matcher: mph
+geo-auto-update: true
+geo-update-interval: 24
 
-find-process-mode: strict  # Process matching mode
-global-client-fingerprint: chrome  # TLS fingerprint
+# Custom GEO download URLs (CDN mirrors for reliable access)
+geox-url:
+  geoip: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat"
+  geosite: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat"
+  mmdb: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb"
+  asn: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/GeoLite2-ASN.mmdb"
 
-# ----- Profile Settings -----
+# --- Profile Settings ---
 profile:
-  store-selected: true     # Persist selected proxy across restarts
-  store-fake-ip: true      # Persist fake-ip mapping
+  store-selected: true
+  store-fake-ip: true
 
-# ----- Sniffer (Traffic Detection) -----
-sniffer:
-  enable: true
-  sniff:
-    HTTP:
-      ports: [80, 8080-8880]
-      override-destination: true
-    TLS:
-      ports: [443, 8443]
-    QUIC:
-      ports: [443, 8443]
-  skip-domain:
-    - "Mijia Cloud"
-    - "+.push.apple.com"
-
-# ----- DNS Configuration -----
+# --- DNS Configuration ---
+# Layered design to avoid chicken-and-egg problem:
+#   default-nameserver -> resolves DoH/DoT server domains
+#   proxy-server-nameserver -> resolves proxy node hostnames (direct, no proxy)
+#   nameserver -> primary DNS for all other queries
+#   fallback -> anti-pollution DNS (overseas servers)
 dns:
   enable: true
-  listen: 0.0.0.0:53
-  ipv6: true
+  listen: 0.0.0.0:1053
+  ipv6: false
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
-  fake-ip-filter:
-    - "*.lan"
-    - "*.local"
-    - "*.localhost"
-    - "dns.msftncsi.com"
-    - "www.msftncsi.com"
-    - "+.stun.*.*"
-    - "+.stun.*.*.*"
-    - "+.stun.*.*.*.*"
-    - "+.stun.*.*.*.*.*"
-    - "lens.l.google.com"
-    - "stun.l.google.com"
-    - "time.windows.com"
-    - "time.nist.gov"
-    - "time.apple.com"
-    - "time.cloudflare.com"
-    - "ntp.ubuntu.com"
-    - "ntp.aliyun.com"
+  cache-algorithm: arc
+  use-hosts: true
+  use-system-hosts: true
+
+  # Bootstrap DNS - MUST be plain IP addresses (no domains!)
   default-nameserver:
     - 223.5.5.5
     - 119.29.29.29
-    - 1.0.0.1
-  nameserver:
-    - https://dns.alidns.com/dns-query
+    - 8.8.8.8
+
+  # Proxy server DNS - resolves proxy node hostnames via DIRECT
+  proxy-server-nameserver:
     - https://doh.pub/dns-query
+    - https://dns.alidns.com/dns-query
+
+  # Primary DNS servers
+  nameserver:
+    - https://doh.pub/dns-query
+    - https://dns.alidns.com/dns-query
+
+  # Fallback DNS (anti-pollution, overseas)
   fallback:
-    - https://dns.cloudflare.com/dns-query
-    - https://dns.google/dns-query
-    - tls://1.0.0.1:853
-    - tls://8.8.4.4:853
+    - tls://8.8.4.4
+    - tls://1.1.1.1
+
   fallback-filter:
     geoip: true
     geoip-code: CN
-    geosite:
-      - gfw
     ipcidr:
       - 240.0.0.0/4
 
-# ----- TUN Mode (optional, requires NET_ADMIN) -----
-# tun:
-#   enable: true
-#   stack: system          # system / gvisor / mixed
-#   dns-hijack:
-#     - any:53
-#   auto-route: true
-#   auto-detect-interface: true
+  # Direct connection DNS
+  direct-nameserver:
+    - system
 
-# ============================================================
-# Proxy Configuration (Add your own proxies here)
-# ============================================================
+  fake-ip-filter:
+    - "*.lan"
+    - "*.local"
+    - "localhost"
+    - "+.msftconnecttest.com"
+    - "+.msftncsi.com"
 
-# ----- Proxy Providers (Subscription) -----
-# Uncomment and edit to use subscription-based providers:
-#
-# proxy-providers:
-#   my-provider:
-#     type: http
-#     url: "https://your-subscription-url"
-#     interval: 3600
-#     path: ./providers/my-provider.yaml
-#     health-check:
-#       enable: true
-#       interval: 600
-#       url: https://www.gstatic.com/generate_204
-
-# ----- Individual Proxies -----
-# Uncomment and configure your proxy servers:
-#
+# --- Proxies ---
+# Add your proxy servers here. Example:
 # proxies:
-#   - name: "My-SS"
+#   - name: "My Server"
 #     type: ss
-#     server: example.com
-#     port: 443
+#     server: your-server.com
+#     port: 8388
 #     cipher: aes-256-gcm
 #     password: "your-password"
-#
-#   - name: "My-VMess"
-#     type: vmess
-#     server: example.com
-#     port: 443
-#     uuid: "your-uuid"
-#     alterId: 0
-#     cipher: auto
-#     tls: true
-#
-#   - name: "My-Trojan"
-#     type: trojan
-#     server: example.com
-#     port: 443
-#     password: "your-password"
 
-# ----- Proxy Groups -----
-# Uncomment and configure proxy groups:
-#
+# --- Proxy Groups ---
 # proxy-groups:
 #   - name: "Proxy"
 #     type: select
 #     proxies:
+#       - "My Server"
 #       - DIRECT
-#       # - My-SS
-#       # - My-VMess
-#       # - My-Trojan
-#
-#   - name: "Auto"
-#     type: url-test
-#     proxies:
-#       - DIRECT
-#       # - My-SS
-#       # - My-VMess
-#     url: "https://www.gstatic.com/generate_204"
-#     interval: 300
 
-# ============================================================
-# Rules
-# ============================================================
+# --- Rules ---
 rules:
-  # ----- Custom Rules (Add above MATCH) -----
-  # - DOMAIN-SUFFIX,google.com,Proxy
-  # - DOMAIN-SUFFIX,github.com,Proxy
-  # - GEOSITE,geolocation-!cn,Proxy
-  # - GEOIP,CN,DIRECT
-
-  # ----- Final Rule: All unmatched traffic -----
+  - GEOSITE,private,DIRECT
+  - GEOSITE,cn,DIRECT
+  - GEOIP,CN,DIRECT,no-resolve
   - MATCH,DIRECT
