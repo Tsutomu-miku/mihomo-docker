@@ -1,6 +1,8 @@
 name: Create Release Tag
 on:
-  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/create-release.yml'
 
 permissions:
   contents: write
@@ -12,11 +14,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Create v1.1.0 tag
+      - name: Create v1.1.0 tag on fix commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a v1.1.0 -m "v1.1.0: Fix geo database errors and UI accessibility"
+          git tag -a v1.1.0 00c928c3cc1b85243077ee3e4b3ed4f608265931 -m "v1.1.0: Fix geo database errors and UI accessibility"
           git push origin v1.1.0
       - name: Create Release
         uses: softprops/action-gh-release@v2
