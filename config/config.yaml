@@ -19,15 +19,12 @@ external-ui: ui
 # secret: ""  # Uncomment and set a secret for production use
 
 # --- GEO Database Settings ---
-# geodata-mode: true  => uses geoip.dat / geosite.dat (v2ray format)
-# geodata-mode: false => uses country.mmdb (MaxMind format, default)
 geodata-mode: true
 geodata-loader: memconservative
 geosite-matcher: mph
 geo-auto-update: true
 geo-update-interval: 24
 
-# Custom GEO download URLs (CDN mirrors for reliable access)
 geox-url:
   geoip: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat"
   geosite: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat"
@@ -39,12 +36,123 @@ profile:
   store-selected: true
   store-fake-ip: true
 
+# =============================================
+# PROXY PROVIDERS (Subscription Support)
+# =============================================
+# mihomo natively supports fetching proxies from subscription URLs.
+# Supports: Clash YAML, base64-encoded URI list, plain URI list.
+#
+# Uncomment and edit the section below to add your subscriptions.
+# You can add multiple providers - they will all be merged.
+#
+# proxy-providers:
+#   # --- Example: Airport subscription (Clash format) ---
+#   airport1:
+#     type: http
+#     url: "https://your-provider.com/api/v1/client/subscribe?token=YOUR_TOKEN"
+#     path: ./proxy_providers/airport1.yaml
+#     interval: 3600                # Refresh every 1 hour
+#     health-check:
+#       enable: true
+#       url: https://www.gstatic.com/generate_204
+#       interval: 300               # Health check every 5 min
+#       timeout: 5000
+#       lazy: true                  # Only check nodes in use
+#     override:
+#       additional-prefix: "[Air1] " # Prefix for node names
+#
+#   # --- Example: Another subscription ---
+#   airport2:
+#     type: http
+#     url: "https://another-provider.com/clash-sub"
+#     path: ./proxy_providers/airport2.yaml
+#     interval: 3600
+#     health-check:
+#       enable: true
+#       url: https://www.gstatic.com/generate_204
+#       interval: 300
+#       timeout: 5000
+#       lazy: true
+#     # filter: "(?i)HK|JP|US"     # Optional: only keep matching nodes
+#     # exclude-filter: "(?i)expire" # Optional: exclude matching nodes
+#
+#   # --- Example: Via subconverter (for non-Clash format subscriptions) ---
+#   converted:
+#     type: http
+#     url: "http://localhost:25500/sub?target=clash&url=https%3A%2F%2Fv2ray-provider.com%2Fsub"
+#     path: ./proxy_providers/converted.yaml
+#     interval: 3600
+#     health-check:
+#       enable: true
+#       url: https://www.gstatic.com/generate_204
+#       interval: 300
+
+# =============================================
+# PROXY GROUPS
+# =============================================
+# When using proxy-providers, reference them with "use:"
+#
+# proxy-groups:
+#   - name: "Proxy"
+#     type: select
+#     proxies:
+#       - Auto
+#       - HongKong
+#       - Japan
+#       - USA
+#       - DIRECT
+#     use:
+#       - airport1
+#       - airport2
+#
+#   - name: "Auto"
+#     type: url-test
+#     url: https://www.gstatic.com/generate_204
+#     interval: 300
+#     tolerance: 50
+#     use:
+#       - airport1
+#       - airport2
+#
+#   - name: "HongKong"
+#     type: url-test
+#     url: https://www.gstatic.com/generate_204
+#     interval: 300
+#     tolerance: 50
+#     filter: "(?i)HK|Hong.?Kong|hongkong|\u9999\u6e2f"
+#     use:
+#       - airport1
+#       - airport2
+#
+#   - name: "Japan"
+#     type: url-test
+#     url: https://www.gstatic.com/generate_204
+#     interval: 300
+#     tolerance: 50
+#     filter: "(?i)JP|Japan|\u65e5\u672c"
+#     use:
+#       - airport1
+#       - airport2
+#
+#   - name: "USA"
+#     type: url-test
+#     url: https://www.gstatic.com/generate_204
+#     interval: 300
+#     tolerance: 50
+#     filter: "(?i)US|USA|United.?States|\u7f8e\u56fd"
+#     use:
+#       - airport1
+#       - airport2
+#
+#   - name: "Streaming"
+#     type: select
+#     proxies:
+#       - Proxy
+#       - HongKong
+#       - Japan
+#       - USA
+
 # --- DNS Configuration ---
-# Layered design to avoid chicken-and-egg problem:
-#   default-nameserver -> resolves DoH/DoT server domains
-#   proxy-server-nameserver -> resolves proxy node hostnames (direct, no proxy)
-#   nameserver -> primary DNS for all other queries
-#   fallback -> anti-pollution DNS (overseas servers)
 dns:
   enable: true
   listen: 0.0.0.0:1053
@@ -55,23 +163,19 @@ dns:
   use-hosts: true
   use-system-hosts: true
 
-  # Bootstrap DNS - MUST be plain IP addresses (no domains!)
   default-nameserver:
     - 223.5.5.5
     - 119.29.29.29
     - 8.8.8.8
 
-  # Proxy server DNS - resolves proxy node hostnames via DIRECT
   proxy-server-nameserver:
     - https://doh.pub/dns-query
     - https://dns.alidns.com/dns-query
 
-  # Primary DNS servers
   nameserver:
     - https://doh.pub/dns-query
     - https://dns.alidns.com/dns-query
 
-  # Fallback DNS (anti-pollution, overseas)
   fallback:
     - tls://8.8.4.4
     - tls://1.1.1.1
@@ -82,7 +186,6 @@ dns:
     ipcidr:
       - 240.0.0.0/4
 
-  # Direct connection DNS
   direct-nameserver:
     - system
 
@@ -93,25 +196,25 @@ dns:
     - "+.msftconnecttest.com"
     - "+.msftncsi.com"
 
-# --- Proxies ---
-# Add your proxy servers here. Example:
-# proxies:
-#   - name: "My Server"
-#     type: ss
-#     server: your-server.com
-#     port: 8388
-#     cipher: aes-256-gcm
-#     password: "your-password"
-
-# --- Proxy Groups ---
-# proxy-groups:
-#   - name: "Proxy"
-#     type: select
-#     proxies:
-#       - "My Server"
-#       - DIRECT
-
 # --- Rules ---
+# Uncomment and adjust when using proxy-groups above
+# rules:
+#   - GEOSITE,category-ads-all,REJECT
+#   - GEOSITE,youtube,Streaming
+#   - GEOSITE,netflix,Streaming
+#   - GEOSITE,disney,Streaming
+#   - GEOSITE,google,Proxy
+#   - GEOSITE,github,Proxy
+#   - GEOSITE,telegram,Proxy
+#   - GEOSITE,twitter,Proxy
+#   - GEOSITE,facebook,Proxy
+#   - GEOSITE,openai,Proxy
+#   - GEOSITE,private,DIRECT
+#   - GEOSITE,cn,DIRECT
+#   - GEOIP,CN,DIRECT,no-resolve
+#   - MATCH,Proxy
+
+# Default rules (no proxy configured)
 rules:
   - GEOSITE,private,DIRECT
   - GEOSITE,cn,DIRECT

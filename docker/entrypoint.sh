@@ -9,11 +9,12 @@ set -e
 CONFIG_DIR="/root/.config/mihomo"
 CONFIG_FILE="${CONFIG_DIR}/config.yaml"
 UI_DIR="${CONFIG_DIR}/ui"
+PROVIDERS_DIR="${CONFIG_DIR}/proxy_providers"
 BUILTIN_UI_DIR="/opt/mihomo/ui"
 BUILTIN_GEO_DIR="/opt/mihomo/geodata"
 
-# --- Ensure config directory exists ---
-mkdir -p "${CONFIG_DIR}"
+# --- Ensure directories exist ---
+mkdir -p "${CONFIG_DIR}" "${PROVIDERS_DIR}"
 
 # --- Initialize default config if not present ---
 if [ ! -f "${CONFIG_FILE}" ]; then
@@ -42,7 +43,6 @@ recover_geo_file() {
     fi
 }
 
-# Recover all geo database files
 recover_geo_file "geoip.dat"
 recover_geo_file "geosite.dat"
 recover_geo_file "geoip.metadb"
@@ -61,20 +61,25 @@ echo "  mihomo Docker - All-in-One Proxy"
 echo "============================================"
 echo "  Config:    ${CONFIG_FILE}"
 echo "  UI:        ${UI_DIR}"
+echo "  Providers: ${PROVIDERS_DIR}"
 echo "  API:       0.0.0.0:9090"
 echo "  Mixed:     0.0.0.0:7890"
 echo "============================================"
 
-# List geo files status
+# GEO files status
 echo "  GEO files:"
 for f in geoip.dat geosite.dat geoip.metadb country.mmdb GeoLite2-ASN.mmdb; do
     if [ -f "${CONFIG_DIR}/${f}" ]; then
         size=$(du -h "${CONFIG_DIR}/${f}" 2>/dev/null | cut -f1)
-        echo "    ✓ ${f} (${size})"
+        echo "    \u2713 ${f} (${size})"
     else
-        echo "    ✗ ${f} (missing)"
+        echo "    \u2717 ${f} (missing)"
     fi
 done
+
+# Subscription providers status
+provider_count=$(ls -1 "${PROVIDERS_DIR}"/*.yaml 2>/dev/null | wc -l || echo "0")
+echo "  Cached providers: ${provider_count} file(s)"
 echo "============================================"
 
 # --- Start mihomo ---

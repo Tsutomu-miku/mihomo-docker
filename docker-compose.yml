@@ -1,3 +1,10 @@
+# ============================================================
+# mihomo Docker - Basic Setup
+# ============================================================
+# For subscription support, just edit config/config.yaml
+# and uncomment the proxy-providers section.
+# ============================================================
+
 services:
   mihomo:
     container_name: mihomo
@@ -10,7 +17,6 @@ services:
     environment:
       - TZ=Asia/Shanghai
     volumes:
-      # Mount config directory - geo files and UI auto-recovered from built-in backup
       - ./config:/root/.config/mihomo
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9090"]
