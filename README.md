@@ -1,378 +1,200 @@
-# mihomo-docker
+# mihomo Docker
 
-A Docker all-in-one proxy solution powered by [mihomo](https://github.com/MetaCubeX/mihomo) (Clash.Meta) kernel with [metacubexd](https://github.com/MetaCubeX/metacubexd) web dashboard.
+> One-click proxy solution: **mihomo** + **metacubexd** + **Sub-Store**, all in Docker.
+
+Deploy a full-featured proxy with graphical subscription management — no more manually editing YAML configs.
 
 ## Features
 
-- **mihomo Alpha** kernel - latest proxy engine with full protocol support
-- **metacubexd** web dashboard - modern, responsive management UI
-- **Subscription support** - native proxy-providers for airport subscriptions, optional Sub-Store integration
-- **Pre-bundled GEO databases** - geoip.dat, geosite.dat, geoip.metadb, country.mmdb, ASN.mmdb
-- **Auto-recovery** - UI and GEO files automatically restored when config volume overwrites them
-- **Multi-architecture** - supports linux/amd64, linux/arm64, linux/arm/v7
-- **Docker-optimized** - proper health checks, log rotation, timezone support
+- **mihomo Alpha** — Latest Clash Meta kernel with VLESS, Hysteria2, TUIC, etc.
+- **metacubexd Dashboard** — Web UI to switch proxy modes, select nodes, monitor traffic
+- **Sub-Store Integration** — Web UI for subscription management (import, filter, merge, auto-refresh)
+- **Pre-bundled GEO Databases** — geoip.dat, geosite.dat, mmdb, ASN auto-updated
+- **Self-healing** — Dashboard UI & GEO files auto-restore if missing
+- **Multi-architecture** — amd64 / arm64 / armv7
+
+## Architecture
+
+```
+Browser ──► metacubexd (Dashboard)     Browser ──► Sub-Store UI
+               │                                       │
+               ▼                                       ▼
+          mihomo (Proxy Engine) ◄──── proxy-providers URL
+               │
+               ▼
+          Proxy Traffic Out
+```
 
 ## Quick Start
 
-### 1. Create project directory
+### 1. Clone the repo
 
 ```bash
-mkdir mihomo && cd mihomo
-mkdir -p config
+git clone https://github.com/Tsutomu-miku/mihomo-docker.git
+cd mihomo-docker
 ```
 
-### 2. Create docker-compose.yml
-
-```yaml
-services:
-  mihomo:
-    container_name: mihomo
-    image: ghcr.io/tsutomu-miku/mihomo-docker:latest
-    restart: unless-stopped
-    network_mode: host
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    environment:
-      - TZ=Asia/Shanghai
-    volumes:
-      - ./config:/root/.config/mihomo
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-```
-
-### 3. Start the container
+### 2. Start all services
 
 ```bash
 docker compose up -d
 ```
 
-On first start, the container will:
-1. Copy default `config.yaml` to `./config/` (if not present)
-2. Restore web UI files to `./config/ui/`
-3. Restore GEO database files (geoip.dat, geosite.dat, etc.)
-4. Start mihomo proxy engine
+This starts:
+- **mihomo** — proxy engine + dashboard
+- **sub-store** — subscription management UI
 
-### 4. Access the dashboard
+### 3. Configure subscriptions (Sub-Store UI)
 
-Open your browser and visit:
+Open **http://\<YOUR-IP\>:3001** in your browser:
 
-```
-http://YOUR_HOST_IP:9090/ui
-```
+1. **Add Subscriptions** — Click "+" to add your airport/provider subscription URLs
+2. **Create a Collection** — Name it `all` (or any name), add your subscriptions to it
+3. **Done!** — mihomo will automatically pull nodes from Sub-Store
 
-## Subscription Usage
+### 4. Manage proxy (mihomo Dashboard)
 
-metacubexd frontend does not have built-in subscription management. This project provides subscription support through mihomo's native **proxy-providers** feature and optional **Sub-Store** integration.
+Open **http://\<YOUR-IP\>:9090/ui** in your browser:
 
-### Method 1: Edit config.yaml (Simplest)
+- **Switch mode** — Global / Rule / Direct
+- **Select nodes** — Click to choose, with latency testing
+- **Monitor traffic** — Real-time connections and bandwidth
 
-The default `config.yaml` includes a commented-out `proxy-providers` section. Simply uncomment and fill in your subscription URL:
+## Ports
 
-```yaml
-proxy-providers:
-  airport1:
-    type: http
-    url: "https://your-provider.com/api/v1/client/subscribe?token=YOUR_TOKEN"
-    path: ./proxy_providers/airport1.yaml
-    interval: 3600
-    health-check:
-      enable: true
-      url: https://www.gstatic.com/generate_204
-      interval: 300
-      timeout: 5000
-      lazy: true
-
-proxy-groups:
-  - name: "Proxy"
-    type: select
-    use:
-      - airport1
-    proxies:
-      - DIRECT
-```
-
-Then restart the container:
-
-```bash
-docker compose restart
-```
-
-### Method 2: Multiple Subscriptions with Region Groups
-
-For users with multiple airport subscriptions who want region-based auto-select:
-
-```yaml
-proxy-providers:
-  airport1:
-    type: http
-    url: "https://airport1.example.com/subscribe?token=TOKEN1"
-    path: ./proxy_providers/airport1.yaml
-    interval: 3600
-    health-check:
-      enable: true
-      url: https://www.gstatic.com/generate_204
-      interval: 300
-  airport2:
-    type: http
-    url: "https://airport2.example.com/subscribe?token=TOKEN2"
-    path: ./proxy_providers/airport2.yaml
-    interval: 3600
-    health-check:
-      enable: true
-      url: https://www.gstatic.com/generate_204
-      interval: 300
-
-proxy-groups:
-  - name: "Proxy"
-    type: select
-    proxies:
-      - HongKong
-      - Japan
-      - USA
-      - DIRECT
-
-  - name: "HongKong"
-    type: url-test
-    use:
-      - airport1
-      - airport2
-    filter: "(?i)HK|Hong|港"
-    url: https://www.gstatic.com/generate_204
-    interval: 300
-
-  - name: "Japan"
-    type: url-test
-    use:
-      - airport1
-      - airport2
-    filter: "(?i)JP|Japan|日"
-    url: https://www.gstatic.com/generate_204
-    interval: 300
-
-  - name: "USA"
-    type: url-test
-    use:
-      - airport1
-      - airport2
-    filter: "(?i)US|United|美"
-    url: https://www.gstatic.com/generate_204
-    interval: 300
-```
-
-### Method 3: Sub-Store (Advanced Web UI)
-
-For users who prefer a graphical subscription manager with merge/filter capabilities, use the included `docker-compose.substore.yml`:
-
-```bash
-docker compose -f docker-compose.substore.yml up -d
-```
-
-This starts both mihomo and [Sub-Store](https://github.com/sub-store-org/Sub-Store):
-
-| Service | Port | URL |
-|---------|------|-----|
-| mihomo Dashboard | 9090 | `http://HOST:9090/ui` |
-| Sub-Store Frontend | 3001 | `http://HOST:3001` |
-
-Use Sub-Store to:
-- Add and manage multiple subscription sources
-- Merge subscriptions into a single provider
-- Filter/rename/sort nodes
-- Export as Clash YAML for use in proxy-providers
-
-### Supported Subscription Formats
-
-| Format | Example | Notes |
-|--------|---------|-------|
-| Clash YAML | Most airports provide this | Directly compatible |
-| Base64 encoded | V2Ray subscription links | mihomo auto-decodes |
-| URI list | `ss://...`, `vmess://...` per line | mihomo auto-parses |
-| SIP008 | Shadowsocks standard | Supported natively |
-
-### Manual Refresh
-
-Trigger an immediate subscription update via the API:
-
-```bash
-# Update all proxy-providers
-curl -X PUT http://127.0.0.1:9090/providers/proxies/airport1
-
-# Or restart container
-docker compose restart
-```
-
-You can also refresh subscriptions from the metacubexd dashboard under the **Providers** tab.
-
-### proxy-providers Reference
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `type` | `http` / `file` | `http` fetches from URL; `file` loads local YAML |
-| `url` | string | Subscription URL (for `type: http`) |
-| `path` | string | Local cache path (relative to config dir) |
-| `interval` | int | Auto-update interval in seconds (default: 3600) |
-| `health-check.enable` | bool | Enable periodic node health checks |
-| `health-check.url` | string | URL for latency testing |
-| `health-check.interval` | int | Health check interval in seconds |
-| `filter` | string | Regex to filter nodes by name |
+| Port | Service | Description |
+|------|---------|-------------|
+| 7890 | mihomo | HTTP/SOCKS5 mixed proxy |
+| 9090 | mihomo | Dashboard & External Controller API |
+| 3001 | Sub-Store | Subscription management UI |
 
 ## Configuration
 
-### Config File
+### Sub-Store Backend Path
 
-The main configuration file is `./config/config.yaml`. Edit it to add your proxy servers:
+The `SUB_STORE_FRONTEND_BACKEND_PATH` in `docker-compose.yml` acts as a simple auth token for the Sub-Store API. **Change it to your own random string** for security:
 
 ```yaml
-proxies:
-  - name: "My Proxy"
-    type: ss
-    server: your-server.com
-    port: 8388
-    cipher: aes-256-gcm
-    password: "your-password"
+environment:
+  - SUB_STORE_FRONTEND_BACKEND_PATH=/your-random-string-here
+```
 
+### Custom Collection Name
+
+If you named your Sub-Store collection something other than `all`, update `config/config.yaml`:
+
+```yaml
+proxy-providers:
+  sub-store:
+    url: "http://127.0.0.1:3001/download/collection/YOUR_NAME?target=ClashMeta"
+```
+
+### mihomo Secret
+
+For production, uncomment and set a secret in `config/config.yaml`:
+
+```yaml
+secret: "your-secret-here"
+```
+
+Then enter this secret when connecting from the dashboard.
+
+### Region-based Proxy Groups
+
+The default config includes commented region groups (Hong Kong, Japan, USA, Streaming). Uncomment them in `config/config.yaml` if you need region-based routing:
+
+```yaml
 proxy-groups:
-  - name: "Proxy"
-    type: select
-    proxies:
-      - "My Proxy"
-      - DIRECT
-
-rules:
-  - GEOSITE,private,DIRECT
-  - GEOSITE,cn,DIRECT
-  - GEOIP,CN,DIRECT,no-resolve
-  - MATCH,Proxy
+  # Uncomment the groups you need:
+  - name: "HongKong"
+    type: url-test
+    use:
+      - sub-store
+    filter: "(?i)港|HK|Hong"
+    ...
 ```
 
-After editing, restart the container:
+## GEO Databases
 
-```bash
-docker compose restart
-```
+Auto-updated every 24 hours. Sources:
 
-### Ports
-
-| Port | Protocol | Description |
-|------|----------|-------------|
-| 7890 | HTTP/SOCKS5 | Mixed proxy port |
-| 9090 | HTTP | External controller API + Web UI |
-
-### GEO Database Files
-
-The image pre-bundles all necessary GEO databases from [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat):
-
-| File | Format | Purpose |
-|------|--------|---------|
-| `geoip.dat` | v2ray DAT | GeoIP rules (used with `geodata-mode: true`) |
-| `geosite.dat` | v2ray DAT | GeoSite domain rules |
-| `geoip.metadb` | MetaDB | mihomo-specific GeoIP metadata |
-| `country.mmdb` | MaxMind MMDB | GeoIP database (used with `geodata-mode: false`) |
-| `GeoLite2-ASN.mmdb` | MaxMind MMDB | ASN (Autonomous System Number) database |
-
-**Auto-recovery**: When you mount `./config:/root/.config/mihomo`, the volume mount may overwrite the built-in GEO files. The entrypoint script automatically detects missing GEO files and restores them from the built-in backup at `/opt/mihomo/geodata/`.
-
-### GEO Auto-Update
-
-The default config enables automatic GEO database updates every 24 hours with CDN mirrors:
-
-```yaml
-geo-auto-update: true
-geo-update-interval: 24
-geox-url:
-  geoip: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat"
-  geosite: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat"
-  mmdb: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb"
-  asn: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/GeoLite2-ASN.mmdb"
-```
-
-### DNS Configuration
-
-The default DNS config uses a layered architecture to avoid the "chicken-and-egg" problem (proxy needs DNS, DNS needs proxy):
-
-1. **default-nameserver** (plain IPs) - bootstraps all other DNS
-2. **proxy-server-nameserver** - resolves proxy node hostnames via DIRECT
-3. **nameserver** - primary DNS for all other domains
-4. **fallback** - anti-pollution DNS (overseas servers)
-
-### SAFE_PATHS Compliance
-
-mihomo Alpha enforces a security policy where config paths must be within the working directory. This image:
-
-- Uses relative path `external-ui: ui` (resolves to `/root/.config/mihomo/ui`)
-- Stores all GEO files in `/root/.config/mihomo/` (the working directory)
-- No `SAFE_PATHS` environment variable needed in normal operation
+| File | Description |
+|------|-------------|
+| geoip.dat | IP geolocation rules |
+| geosite.dat | Domain-based rules |
+| geoip.metadb | Compact IP database |
+| country.mmdb | MaxMind country DB |
+| GeoLite2-ASN.mmdb | ASN lookup DB |
 
 ## Docker Image
 
-Pull from GitHub Container Registry:
-
 ```bash
-# Latest
+# Pull from GitHub Container Registry
 docker pull ghcr.io/tsutomu-miku/mihomo-docker:latest
-
-# Specific version
-docker pull ghcr.io/tsutomu-miku/mihomo-docker:v1.0.0
 ```
 
-### Supported Architectures
-
-| Architecture | Docker Platform | Typical Devices |
-|-------------|-----------------|------------------|
-| x86_64 | linux/amd64 | PCs, servers, most VPS |
-| ARM64 | linux/arm64 | Raspberry Pi 4/5, Apple M-series |
-| ARMv7 | linux/arm/v7 | Raspberry Pi 2/3, older ARM boards |
+Supported platforms: `linux/amd64`, `linux/arm64`, `linux/arm/v7`
 
 ## Build from Source
 
 ```bash
-git clone https://github.com/Tsutomu-miku/mihomo-docker.git
-cd mihomo-docker
 docker build -t mihomo-docker .
+```
+
+## File Structure
+
+```
+mihomo-docker/
+├── config/
+│   └── config.yaml          # mihomo config (auto-created on first run)
+├── sub-store-data/           # Sub-Store persistent data (auto-created)
+├── docker/
+│   └── entrypoint.sh         # Container startup script
+├── docker-compose.yml         # Main deployment file
+├── Dockerfile                 # Multi-stage build
+└── README.md
 ```
 
 ## Troubleshooting
 
-### GEO database errors on startup
+### Sub-Store UI not accessible
 
-If you see errors like `can't load GEO data`, check:
+- Check if the container is running: `docker compose ps`
+- Check logs: `docker compose logs sub-store`
+- Ensure port 3001 is not blocked by firewall
 
-1. GEO files should exist in `./config/` directory
-2. If missing, restart the container - entrypoint auto-recovers them
-3. Check network access for auto-update: `geox-url` uses CDN mirrors
+### Nodes not showing in mihomo
 
-### UI not accessible
+1. Verify Sub-Store has subscriptions configured and collection created
+2. Check the collection name matches `config.yaml`'s proxy-providers URL
+3. Force refresh: `curl -X PUT http://127.0.0.1:9090/providers/proxies/sub-store`
+4. Check logs: `docker compose logs mihomo`
 
-1. Verify the container is running: `docker compose ps`
-2. Check logs: `docker compose logs -f`
-3. Ensure port 9090 is accessible
-4. Access URL: `http://HOST_IP:9090/ui`
-5. UI files should be in `./config/ui/` - restart container to restore
+### GEO database errors
 
-### SAFE_PATHS error
+The container auto-restores missing GEO files from built-in copies on startup. If issues persist:
 
-If you see `path is not subpath of home directory or SAFE_PATHS`, ensure:
-- `external-ui` in config uses a relative path (e.g., `ui`) not absolute (e.g., `/ui`)
-- All referenced paths are within `/root/.config/mihomo/`
+```bash
+# Remove GEO files and restart
+rm -f config/geoip.dat config/geosite.dat config/geoip.metadb config/country.mmdb config/GeoLite2-ASN.mmdb
+docker compose restart mihomo
+```
 
-### Subscription not updating
+### Dashboard UI not loading
 
-1. Verify subscription URL is accessible from the container
-2. Check logs: `docker compose logs -f | grep provider`
-3. Manual refresh: `curl -X PUT http://127.0.0.1:9090/providers/proxies/PROVIDER_NAME`
-4. Ensure `proxy_providers/` directory exists in `./config/`
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
+```bash
+# Remove UI directory and restart
+rm -rf config/ui
+docker compose restart mihomo
+```
 
 ## Credits
 
-- [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo) - Proxy kernel
-- [MetaCubeX/metacubexd](https://github.com/MetaCubeX/metacubexd) - Web dashboard
-- [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) - GEO databases
-- [sub-store-org/Sub-Store](https://github.com/sub-store-org/Sub-Store) - Subscription manager (optional)
+- [mihomo (Clash Meta)](https://github.com/MetaCubeX/mihomo) — Proxy kernel
+- [metacubexd](https://github.com/MetaCubeX/metacubexd) — Dashboard UI
+- [Sub-Store](https://github.com/sub-store-org/Sub-Store) — Subscription management
+- [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) — GEO databases
+
+## License
+
+[MIT](LICENSE)

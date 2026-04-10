@@ -1,11 +1,13 @@
 # ============================================================
 # mihomo Docker - Default Configuration
 # ============================================================
-# GitHub: https://github.com/Tsutomu-miku/mihomo-docker
-# Wiki:   https://wiki.metacubex.one/
+# Subscriptions : managed via Sub-Store UI at http://<IP>:3001
+# Proxy control : via metacubexd Dashboard at http://<IP>:9090/ui
 # ============================================================
 
-# --- General Settings ---
+# ========================
+# General
+# ========================
 mode: rule
 mixed-port: 7890
 allow-lan: true
@@ -13,12 +15,16 @@ bind-address: "*"
 log-level: info
 ipv6: false
 
-# --- External Controller (API & Dashboard) ---
+# ========================
+# External Controller & Dashboard
+# ========================
 external-controller: 0.0.0.0:9090
 external-ui: ui
-# secret: ""  # Uncomment and set a secret for production use
+# secret: ""
 
-# --- GEO Database Settings ---
+# ========================
+# GEO Database
+# ========================
 geodata-mode: true
 geodata-loader: memconservative
 geosite-matcher: mph
@@ -26,197 +32,135 @@ geo-auto-update: true
 geo-update-interval: 24
 
 geox-url:
-  geoip: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat"
-  geosite: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat"
-  mmdb: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb"
-  asn: "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/GeoLite2-ASN.mmdb"
+  geoip: "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat"
+  geosite: "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat"
+  mmdb: "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.metadb"
+  asn: "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/GeoLite2-ASN.mmdb"
 
-# --- Profile Settings ---
+# ========================
+# Profile
+# ========================
 profile:
   store-selected: true
   store-fake-ip: true
 
-# =============================================
-# PROXY PROVIDERS (Subscription Support)
-# =============================================
-# mihomo natively supports fetching proxies from subscription URLs.
-# Supports: Clash YAML, base64-encoded URI list, plain URI list.
-#
-# Uncomment and edit the section below to add your subscriptions.
-# You can add multiple providers - they will all be merged.
-#
-# proxy-providers:
-#   # --- Example: Airport subscription (Clash format) ---
-#   airport1:
-#     type: http
-#     url: "https://your-provider.com/api/v1/client/subscribe?token=YOUR_TOKEN"
-#     path: ./proxy_providers/airport1.yaml
-#     interval: 3600                # Refresh every 1 hour
-#     health-check:
-#       enable: true
-#       url: https://www.gstatic.com/generate_204
-#       interval: 300               # Health check every 5 min
-#       timeout: 5000
-#       lazy: true                  # Only check nodes in use
-#     override:
-#       additional-prefix: "[Air1] " # Prefix for node names
-#
-#   # --- Example: Another subscription ---
-#   airport2:
-#     type: http
-#     url: "https://another-provider.com/clash-sub"
-#     path: ./proxy_providers/airport2.yaml
-#     interval: 3600
-#     health-check:
-#       enable: true
-#       url: https://www.gstatic.com/generate_204
-#       interval: 300
-#       timeout: 5000
-#       lazy: true
-#     # filter: "(?i)HK|JP|US"     # Optional: only keep matching nodes
-#     # exclude-filter: "(?i)expire" # Optional: exclude matching nodes
-#
-#   # --- Example: Via subconverter (for non-Clash format subscriptions) ---
-#   converted:
-#     type: http
-#     url: "http://localhost:25500/sub?target=clash&url=https%3A%2F%2Fv2ray-provider.com%2Fsub"
-#     path: ./proxy_providers/converted.yaml
-#     interval: 3600
-#     health-check:
-#       enable: true
-#       url: https://www.gstatic.com/generate_204
-#       interval: 300
-
-# =============================================
-# PROXY GROUPS
-# =============================================
-# When using proxy-providers, reference them with "use:"
-#
-# proxy-groups:
-#   - name: "Proxy"
-#     type: select
-#     proxies:
-#       - Auto
-#       - HongKong
-#       - Japan
-#       - USA
-#       - DIRECT
-#     use:
-#       - airport1
-#       - airport2
-#
-#   - name: "Auto"
-#     type: url-test
-#     url: https://www.gstatic.com/generate_204
-#     interval: 300
-#     tolerance: 50
-#     use:
-#       - airport1
-#       - airport2
-#
-#   - name: "HongKong"
-#     type: url-test
-#     url: https://www.gstatic.com/generate_204
-#     interval: 300
-#     tolerance: 50
-#     filter: "(?i)HK|Hong.?Kong|hongkong|\u9999\u6e2f"
-#     use:
-#       - airport1
-#       - airport2
-#
-#   - name: "Japan"
-#     type: url-test
-#     url: https://www.gstatic.com/generate_204
-#     interval: 300
-#     tolerance: 50
-#     filter: "(?i)JP|Japan|\u65e5\u672c"
-#     use:
-#       - airport1
-#       - airport2
-#
-#   - name: "USA"
-#     type: url-test
-#     url: https://www.gstatic.com/generate_204
-#     interval: 300
-#     tolerance: 50
-#     filter: "(?i)US|USA|United.?States|\u7f8e\u56fd"
-#     use:
-#       - airport1
-#       - airport2
-#
-#   - name: "Streaming"
-#     type: select
-#     proxies:
-#       - Proxy
-#       - HongKong
-#       - Japan
-#       - USA
-
-# --- DNS Configuration ---
+# ========================
+# DNS
+# ========================
 dns:
   enable: true
   listen: 0.0.0.0:1053
   ipv6: false
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
-  cache-algorithm: arc
-  use-hosts: true
-  use-system-hosts: true
-
+  fake-ip-filter:
+    - "*.lan"
+    - "*.local"
+    - "*.localhost"
+    - "dns.msftncsi.com"
+    - "www.msftncsi.com"
+    - "www.msftconnecttest.com"
   default-nameserver:
     - 223.5.5.5
     - 119.29.29.29
     - 8.8.8.8
-
-  proxy-server-nameserver:
-    - https://doh.pub/dns-query
-    - https://dns.alidns.com/dns-query
-
   nameserver:
     - https://doh.pub/dns-query
     - https://dns.alidns.com/dns-query
-
+  proxy-server-nameserver:
+    - https://doh.pub/dns-query
+    - https://dns.alidns.com/dns-query
   fallback:
     - tls://8.8.4.4
     - tls://1.1.1.1
-
   fallback-filter:
     geoip: true
     geoip-code: CN
     ipcidr:
       - 240.0.0.0/4
 
-  direct-nameserver:
-    - system
+# ============================================================
+# Subscription (via Sub-Store)
+# ============================================================
+# Managed by Sub-Store UI at http://<YOUR-IP>:3001
+#   1. Open Sub-Store → Add your subscription URLs
+#   2. Create a Collection named "all"
+#   3. Nodes will appear automatically in the dashboard
+# ============================================================
 
-  fake-ip-filter:
-    - "*.lan"
-    - "*.local"
-    - "localhost"
-    - "+.msftconnecttest.com"
-    - "+.msftncsi.com"
+proxy-providers:
+  sub-store:
+    type: http
+    url: "http://127.0.0.1:3001/download/collection/all?target=ClashMeta"
+    path: ./proxy_providers/sub-store.yaml
+    interval: 21600
+    proxy: DIRECT
+    health-check:
+      enable: true
+      interval: 600
+      url: https://www.gstatic.com/generate_204
 
-# --- Rules ---
-# Uncomment and adjust when using proxy-groups above
-# rules:
-#   - GEOSITE,category-ads-all,REJECT
-#   - GEOSITE,youtube,Streaming
-#   - GEOSITE,netflix,Streaming
-#   - GEOSITE,disney,Streaming
-#   - GEOSITE,google,Proxy
-#   - GEOSITE,github,Proxy
-#   - GEOSITE,telegram,Proxy
-#   - GEOSITE,twitter,Proxy
-#   - GEOSITE,facebook,Proxy
-#   - GEOSITE,openai,Proxy
-#   - GEOSITE,private,DIRECT
-#   - GEOSITE,cn,DIRECT
-#   - GEOIP,CN,DIRECT,no-resolve
-#   - MATCH,Proxy
+# ========================
+# Proxy Groups
+# ========================
+proxy-groups:
+  - name: "Proxy"
+    type: select
+    use:
+      - sub-store
+    proxies:
+      - Auto
+      - DIRECT
 
-# Default rules (no proxy configured)
+  - name: "Auto"
+    type: url-test
+    use:
+      - sub-store
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+
+  # --------------------------------------------------------
+  # Optional: Region-based groups (uncomment as needed)
+  # --------------------------------------------------------
+  # - name: "HongKong"
+  #   type: url-test
+  #   use:
+  #     - sub-store
+  #   filter: "(?i)港|HK|Hong"
+  #   url: https://www.gstatic.com/generate_204
+  #   interval: 300
+  #
+  # - name: "Japan"
+  #   type: url-test
+  #   use:
+  #     - sub-store
+  #   filter: "(?i)日|JP|Japan"
+  #   url: https://www.gstatic.com/generate_204
+  #   interval: 300
+  #
+  # - name: "USA"
+  #   type: url-test
+  #   use:
+  #     - sub-store
+  #   filter: "(?i)美|US|United States"
+  #   url: https://www.gstatic.com/generate_204
+  #   interval: 300
+  #
+  # - name: "Streaming"
+  #   type: select
+  #   use:
+  #     - sub-store
+  #   proxies:
+  #     - HongKong
+  #     - Japan
+  #     - USA
+
+# ========================
+# Rules
+# ========================
 rules:
   - GEOSITE,private,DIRECT
   - GEOSITE,cn,DIRECT
   - GEOIP,CN,DIRECT,no-resolve
-  - MATCH,DIRECT
+  - MATCH,Proxy
