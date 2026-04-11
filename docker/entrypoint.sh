@@ -3,7 +3,7 @@ set -e
 
 # ============================================================
 # mihomo Docker Entrypoint (All-in-One)
-# - Sub-Store  (background)  → :3001
+# - Sub-Store  (background)  → :3001 (API) + :3002 (UI)
 # - mihomo     (foreground)  → :7890 :9090
 # ============================================================
 
@@ -65,10 +65,19 @@ fi
 # Start Sub-Store (background)
 # ========================
 if [ -f "${SUB_STORE_BACKEND}" ]; then
-  echo "[sub-store] Starting Sub-Store backend on :${SUB_STORE_BACKEND_API_PORT:-3001}..."
+  echo "[sub-store] Starting backend on :${SUB_STORE_BACKEND_API_PORT:-3001}, frontend on :${SUB_STORE_FRONTEND_PORT:-3002}..."
   node "${SUB_STORE_BACKEND}" &
   SUB_STORE_PID=$!
   echo "[sub-store] Sub-Store started (PID: ${SUB_STORE_PID})"
+  # Wait for Sub-Store to be ready before mihomo starts pulling providers
+  echo "[sub-store] Waiting for backend to be ready..."
+  for i in $(seq 1 15); do
+    if wget -q --spider "http://127.0.0.1:${SUB_STORE_BACKEND_API_PORT:-3001}" 2>/dev/null; then
+      echo "[sub-store] Backend is ready"
+      break
+    fi
+    sleep 1
+  done
 else
   echo "[sub-store] WARNING: Sub-Store backend not found, skipping"
 fi
@@ -92,11 +101,11 @@ trap cleanup SIGTERM SIGINT
 echo "============================================"
 echo "  mihomo Docker (All-in-One)"
 echo "============================================"
-echo "  Proxy     : :7890"
-echo "  Dashboard : :9090/ui"
-echo "  Sub-Store : :${SUB_STORE_BACKEND_API_PORT:-3001}"
-echo "  Config    : ${CONFIG_FILE}"
-echo "  GEO       : $(ls ${CONFIG_DIR}/*.dat ${CONFIG_DIR}/*.mmdb ${CONFIG_DIR}/*.metadb 2>/dev/null | wc -l) file(s)"
+echo "  Proxy      : :7890"
+echo "  Dashboard  : :9090/ui"
+echo "  Sub-Store  : :${SUB_STORE_FRONTEND_PORT:-3002}"
+echo "  Config     : ${CONFIG_FILE}"
+echo "  GEO        : $(ls ${CONFIG_DIR}/*.dat ${CONFIG_DIR}/*.mmdb ${CONFIG_DIR}/*.metadb 2>/dev/null | wc -l) file(s)"
 echo "============================================"
 echo ""
 

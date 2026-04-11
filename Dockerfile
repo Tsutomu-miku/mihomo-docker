@@ -59,8 +59,13 @@ RUN apk add --no-cache wget unzip && \
     echo "Downloading Sub-Store frontend..." && \
     wget -q -O /tmp/frontend.zip \
       "https://github.com/sub-store-org/Sub-Store-Front-End/releases/latest/download/dist.zip" && \
-    unzip -q /tmp/frontend.zip -d /sub-store/frontend && \
-    rm /tmp/frontend.zip && \
+    unzip -q /tmp/frontend.zip -d /tmp/fe && \
+    # dist.zip extracts to dist/ subdirectory - flatten it
+    cp -r /tmp/fe/dist/* /sub-store/frontend/ 2>/dev/null || \
+    cp -r /tmp/fe/* /sub-store/frontend/ && \
+    rm -rf /tmp/frontend.zip /tmp/fe && \
+    # Verify index.html exists
+    ls -la /sub-store/frontend/index.html && \
     echo "Sub-Store downloaded successfully"
 
 # ============================================================
@@ -106,16 +111,21 @@ RUN chmod +x /entrypoint.sh
 
 # Environment defaults
 ENV TZ=Asia/Shanghai
-ENV SUB_STORE_FRONTEND_PATH=/opt/sub-store/frontend
-ENV SUB_STORE_DATA_BASE_PATH=/opt/sub-store/data
+# Sub-Store backend serves API
 ENV SUB_STORE_BACKEND_API_HOST=0.0.0.0
 ENV SUB_STORE_BACKEND_API_PORT=3001
+# Sub-Store frontend (static files) on separate port to avoid conflict
+ENV SUB_STORE_FRONTEND_HOST=0.0.0.0
+ENV SUB_STORE_FRONTEND_PORT=3002
+ENV SUB_STORE_FRONTEND_PATH=/opt/sub-store/frontend
+ENV SUB_STORE_DATA_BASE_PATH=/opt/sub-store/data
 
 # Expose ports
 # 7890: HTTP/SOCKS mixed proxy
 # 9090: External controller (API + Web UI)
-# 3001: Sub-Store
-EXPOSE 7890 9090 3001
+# 3001: Sub-Store Backend API
+# 3002: Sub-Store Frontend UI
+EXPOSE 7890 9090 3001 3002
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

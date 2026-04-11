@@ -3,9 +3,9 @@
 # ============================================================
 # Single container includes: mihomo + metacubexd + Sub-Store
 #
-# Dashboard : http://<YOUR-IP>:9090/ui
-# Sub-Store : http://<YOUR-IP>:3001
-# Proxy     : <YOUR-IP>:7890
+# Dashboard  : http://<YOUR-IP>:9090/ui
+# Sub-Store  : http://<YOUR-IP>:3002
+# Proxy      : <YOUR-IP>:7890
 # ============================================================
 
 services:
