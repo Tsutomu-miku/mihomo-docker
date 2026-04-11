@@ -2,7 +2,9 @@
 set -e
 
 # ============================================================
-# mihomo Docker Entrypoint
+# mihomo Docker Entrypoint (All-in-One)
+# - Sub-Store  (background)  → :3001
+# - mihomo     (foreground)  → :7890 :9090
 # ============================================================
 
 CONFIG_DIR="/root/.config/mihomo"
@@ -12,10 +14,13 @@ PROVIDERS_DIR="${CONFIG_DIR}/proxy_providers"
 BUILTIN_UI_DIR="/opt/mihomo/ui"
 BUILTIN_GEO_DIR="/opt/mihomo/geodata"
 
+SUB_STORE_BACKEND="/opt/sub-store/backend/sub-store.bundle.js"
+SUB_STORE_DATA="${SUB_STORE_DATA_BASE_PATH:-/opt/sub-store/data}"
+
 # ========================
 # Initialize directories
 # ========================
-mkdir -p "${CONFIG_DIR}" "${UI_DIR}" "${PROVIDERS_DIR}"
+mkdir -p "${CONFIG_DIR}" "${UI_DIR}" "${PROVIDERS_DIR}" "${SUB_STORE_DATA}"
 
 # ========================
 # Default config
@@ -57,18 +62,47 @@ if [ -n "${TZ}" ] && [ -f "/usr/share/zoneinfo/${TZ}" ]; then
 fi
 
 # ========================
+# Start Sub-Store (background)
+# ========================
+if [ -f "${SUB_STORE_BACKEND}" ]; then
+  echo "[sub-store] Starting Sub-Store backend on :${SUB_STORE_BACKEND_API_PORT:-3001}..."
+  node "${SUB_STORE_BACKEND}" &
+  SUB_STORE_PID=$!
+  echo "[sub-store] Sub-Store started (PID: ${SUB_STORE_PID})"
+else
+  echo "[sub-store] WARNING: Sub-Store backend not found, skipping"
+fi
+
+# ========================
+# Graceful shutdown
+# ========================
+cleanup() {
+  echo "[shutdown] Stopping services..."
+  [ -n "${SUB_STORE_PID}" ] && kill "${SUB_STORE_PID}" 2>/dev/null
+  [ -n "${MIHOMO_PID}" ] && kill "${MIHOMO_PID}" 2>/dev/null
+  wait 2>/dev/null
+  echo "[shutdown] All services stopped"
+  exit 0
+}
+trap cleanup SIGTERM SIGINT
+
+# ========================
 # Startup banner
 # ========================
 echo "============================================"
-echo "  mihomo Docker"
+echo "  mihomo Docker (All-in-One)"
 echo "============================================"
-echo "  Config : ${CONFIG_FILE}"
-echo "  UI     : ${UI_DIR}"
-echo "  GEO    : $(ls ${CONFIG_DIR}/*.dat ${CONFIG_DIR}/*.mmdb ${CONFIG_DIR}/*.metadb 2>/dev/null | wc -l) file(s)"
+echo "  Proxy     : :7890"
+echo "  Dashboard : :9090/ui"
+echo "  Sub-Store : :${SUB_STORE_BACKEND_API_PORT:-3001}"
+echo "  Config    : ${CONFIG_FILE}"
+echo "  GEO       : $(ls ${CONFIG_DIR}/*.dat ${CONFIG_DIR}/*.mmdb ${CONFIG_DIR}/*.metadb 2>/dev/null | wc -l) file(s)"
 echo "============================================"
 echo ""
 
 # ========================
-# Start mihomo
+# Start mihomo (foreground with wait)
 # ========================
-exec /mihomo -d "${CONFIG_DIR}" "$@"
+/mihomo -d "${CONFIG_DIR}" "$@" &
+MIHOMO_PID=$!
+wait "${MIHOMO_PID}"

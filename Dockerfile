@@ -17,7 +17,6 @@ RUN go build -trimpath -ldflags "-s -w \
 
 # ============================================================
 # Stage 2: Download frontend (metacubexd)
-# NOTE: upstream changed from .zip to .tgz as of v1.243.0
 # ============================================================
 FROM alpine:latest AS frontend
 
@@ -48,20 +47,40 @@ RUN apk add --no-cache wget && mkdir -p /geodata && \
     echo "All geo databases downloaded successfully"
 
 # ============================================================
-# Stage 4: Final runtime image
+# Stage 4: Download Sub-Store backend + frontend
+# ============================================================
+FROM alpine:latest AS substore
+
+RUN apk add --no-cache wget unzip && \
+    mkdir -p /sub-store/backend /sub-store/frontend && \
+    echo "Downloading Sub-Store backend..." && \
+    wget -q -O /sub-store/backend/sub-store.bundle.js \
+      "https://github.com/sub-store-org/Sub-Store/releases/latest/download/sub-store.bundle.js" && \
+    echo "Downloading Sub-Store frontend..." && \
+    wget -q -O /tmp/frontend.zip \
+      "https://github.com/sub-store-org/Sub-Store-Front-End/releases/latest/download/dist.zip" && \
+    unzip -q /tmp/frontend.zip -d /sub-store/frontend && \
+    rm /tmp/frontend.zip && \
+    echo "Sub-Store downloaded successfully"
+
+# ============================================================
+# Stage 5: Final runtime image
 # ============================================================
 FROM alpine:latest
 
 LABEL org.opencontainers.image.source="https://github.com/Tsutomu-miku/mihomo-docker"
-LABEL org.opencontainers.image.description="mihomo (Clash.Meta) Docker - All-in-One Proxy with Web UI"
+LABEL org.opencontainers.image.description="mihomo Docker - All-in-One Proxy with Web UI & Sub-Store"
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata iptables
+# Install runtime dependencies (add nodejs for Sub-Store)
+RUN apk add --no-cache ca-certificates tzdata iptables nodejs
 
 # Create directories
 RUN mkdir -p /root/.config/mihomo/ui \
              /opt/mihomo/ui \
-             /opt/mihomo/geodata
+             /opt/mihomo/geodata \
+             /opt/sub-store/backend \
+             /opt/sub-store/frontend \
+             /opt/sub-store/data
 
 # Copy mihomo binary
 COPY --from=builder /mihomo /mihomo
@@ -74,6 +93,10 @@ COPY --from=frontend /ui /opt/mihomo/ui
 COPY --from=geodata /geodata/ /root/.config/mihomo/
 COPY --from=geodata /geodata/ /opt/mihomo/geodata/
 
+# Copy Sub-Store backend + frontend
+COPY --from=substore /sub-store/backend/ /opt/sub-store/backend/
+COPY --from=substore /sub-store/frontend/ /opt/sub-store/frontend/
+
 # Copy default config (used when no config is mounted)
 COPY config/config.yaml /opt/mihomo/config.yaml
 
@@ -83,12 +106,16 @@ RUN chmod +x /entrypoint.sh
 
 # Environment defaults
 ENV TZ=Asia/Shanghai
+ENV SUB_STORE_FRONTEND_PATH=/opt/sub-store/frontend
+ENV SUB_STORE_DATA_BASE_PATH=/opt/sub-store/data
+ENV SUB_STORE_BACKEND_API_HOST=0.0.0.0
+ENV SUB_STORE_BACKEND_API_PORT=3001
 
 # Expose ports
 # 7890: HTTP/SOCKS mixed proxy
-# 7891: Reserved for additional proxy port
 # 9090: External controller (API + Web UI)
-EXPOSE 7890 7891 9090
+# 3001: Sub-Store
+EXPOSE 7890 9090 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

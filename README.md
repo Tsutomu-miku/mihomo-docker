@@ -1,6 +1,6 @@
 # mihomo Docker
 
-> One-click proxy solution: **mihomo** + **metacubexd** + **Sub-Store**, all in Docker.
+> All-in-One proxy solution in a **single Docker image**: **mihomo** + **metacubexd** + **Sub-Store**.
 
 Deploy a full-featured proxy with graphical subscription management — no more manually editing YAML configs.
 
@@ -8,21 +8,28 @@ Deploy a full-featured proxy with graphical subscription management — no more 
 
 - **mihomo Alpha** — Latest Clash Meta kernel with VLESS, Hysteria2, TUIC, etc.
 - **metacubexd Dashboard** — Web UI to switch proxy modes, select nodes, monitor traffic
-- **Sub-Store Integration** — Web UI for subscription management (import, filter, merge, auto-refresh)
+- **Sub-Store Built-in** — Subscription management UI (import, filter, merge, auto-refresh) bundled in the same image
 - **Pre-bundled GEO Databases** — geoip.dat, geosite.dat, mmdb, ASN auto-updated
 - **Self-healing** — Dashboard UI & GEO files auto-restore if missing
 - **Multi-architecture** — amd64 / arm64 / armv7
+- **Single Container** — Everything runs in one container, deploy with one command
 
 ## Architecture
 
 ```
-Browser ──► metacubexd (Dashboard)     Browser ──► Sub-Store UI
-               │                                       │
-               ▼                                       ▼
-          mihomo (Proxy Engine) ◄──── proxy-providers URL
-               │
-               ▼
-          Proxy Traffic Out
+┌─────────────────────────────────────────────┐
+│             Single Docker Container          │
+│                                              │
+│  Browser ──► metacubexd    (:9090/ui)       │
+│  Browser ──► Sub-Store UI  (:3001)          │
+│                                              │
+│         mihomo proxy engine (:7890)         │
+│              ▲                               │
+│              │ proxy-providers               │
+│              ▼                               │
+│         Sub-Store backend  (:3001)          │
+│                                              │
+└─────────────────────────────────────────────┘
 ```
 
 ## Quick Start
@@ -34,15 +41,13 @@ git clone https://github.com/Tsutomu-miku/mihomo-docker.git
 cd mihomo-docker
 ```
 
-### 2. Start all services
+### 2. Start
 
 ```bash
 docker compose up -d
 ```
 
-This starts:
-- **mihomo** — proxy engine + dashboard
-- **sub-store** — subscription management UI
+That's it — one container, all services.
 
 ### 3. Configure subscriptions (Sub-Store UI)
 
@@ -72,7 +77,7 @@ Open **http://\<YOUR-IP\>:9090/ui** in your browser:
 
 ### Sub-Store Backend Path
 
-The `SUB_STORE_FRONTEND_BACKEND_PATH` in `docker-compose.yml` acts as a simple auth token for the Sub-Store API. **Change it to your own random string** for security:
+The `SUB_STORE_FRONTEND_BACKEND_PATH` env var acts as a simple auth token for the Sub-Store API. **Change it to your own random string** for security:
 
 ```yaml
 environment:
@@ -105,7 +110,6 @@ The default config includes commented region groups (Hong Kong, Japan, USA, Stre
 
 ```yaml
 proxy-groups:
-  # Uncomment the groups you need:
   - name: "HongKong"
     type: url-test
     use:
@@ -113,6 +117,15 @@ proxy-groups:
     filter: "(?i)港|HK|Hong"
     ...
 ```
+
+### Data Persistence
+
+| Path | Description |
+|------|-------------|
+| `./config/` | mihomo config, UI, GEO databases |
+| `./sub-store-data/` | Sub-Store subscriptions and collections |
+
+Both directories are auto-created on first run.
 
 ## GEO Databases
 
@@ -150,8 +163,8 @@ mihomo-docker/
 ├── sub-store-data/           # Sub-Store persistent data (auto-created)
 ├── docker/
 │   └── entrypoint.sh         # Container startup script
-├── docker-compose.yml         # Main deployment file
-├── Dockerfile                 # Multi-stage build
+├── docker-compose.yml         # One-container deployment
+├── Dockerfile                 # Multi-stage all-in-one build
 └── README.md
 ```
 
@@ -159,9 +172,9 @@ mihomo-docker/
 
 ### Sub-Store UI not accessible
 
-- Check if the container is running: `docker compose ps`
-- Check logs: `docker compose logs sub-store`
+- Check logs: `docker compose logs mihomo | grep sub-store`
 - Ensure port 3001 is not blocked by firewall
+- Restart: `docker compose restart mihomo`
 
 ### Nodes not showing in mihomo
 
@@ -175,7 +188,6 @@ mihomo-docker/
 The container auto-restores missing GEO files from built-in copies on startup. If issues persist:
 
 ```bash
-# Remove GEO files and restart
 rm -f config/geoip.dat config/geosite.dat config/geoip.metadb config/country.mmdb config/GeoLite2-ASN.mmdb
 docker compose restart mihomo
 ```
@@ -183,7 +195,6 @@ docker compose restart mihomo
 ### Dashboard UI not loading
 
 ```bash
-# Remove UI directory and restart
 rm -rf config/ui
 docker compose restart mihomo
 ```
